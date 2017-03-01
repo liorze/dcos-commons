@@ -91,7 +91,7 @@ public interface Element extends Observable {
     }
 
     /**
-     * Indicates whether this Element is running
+     * Indicates whether this Element is running.
      */
     default boolean isRunning() { return getStatus().isRunning(); }
 
