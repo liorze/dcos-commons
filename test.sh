@@ -7,11 +7,24 @@
 # Exit immediately on errors -- the helper scripts all emit github statuses internally
 set -e
 
+PARALLEL="false"
+while getopts 'p' opt; do
+    case $opt in
+        p)
+            PARALLEL="true"
+            ;;
+        \?)
+            exit 1
+            ;;
+    esac
+done
+shift $((OPTIND-1))
+
 function proxylite_preflight {
     bash frameworks/proxylite/scripts/ci.sh pre-test
 }
 
-function run_framework_tests {
+function prep_framework_test {
     framework=$1
     FRAMEWORK_DIR=${REPO_ROOT_DIR}/frameworks/${framework}
 
@@ -46,9 +59,20 @@ function run_framework_tests {
         # Some tests install a second instance of a framework, such as "hdfs2"
         ${REPO_ROOT_DIR}/tools/setup_permissions.sh root ${framework}2-role
     fi
+}
+
+function run_prepped_framework_test {
+    framework=$1
+    FRAMEWORK_DIR=${REPO_ROOT_DIR}/frameworks/${framework}
 
     # Run shakedown tests in framework directory:
     TEST_GITHUB_LABEL="${framework}" ${REPO_ROOT_DIR}/tools/run_tests.py shakedown ${FRAMEWORK_DIR}/tests/
+}
+
+function run_framework_tests {
+    framework=$1
+    prep_framework_test $framework
+    run_prepped_framework_test $framework
 }
 
 echo "Beginning integration tests at "`date`
@@ -77,10 +101,54 @@ fi
 if [ -n "$1" ]; then
     run_framework_tests $1
 else
+    if [ $PARALLEL = "false" ]; then
+        echo Running tests linearly.
+    else
+        echo Running tests in parallel.
+        declare -a test_subshell_pids
+    fi
+
+    if [ $PARALLEL = "true" ]; then
+        for framework in $(ls $REPO_ROOT_DIR/frameworks); do
+            echo "Starting pre-shakedown steps for $framework at "`date`
+            prep_framework_test $framework
+            echo "Prep complete for $framework at "`date`
+        done
+    fi
+
+    # randomly order frameworks
     for framework in $(ls $REPO_ROOT_DIR/frameworks | while IFS= read -r fw; do printf "%05d %s\n" "$RANDOM" "$fw"; done | sort -n | cut -c7-); do
         echo "Starting shakedown tests for $framework at "`date`
-        run_framework_tests $framework
+        if [ $PARALLEL = "false" ]; then
+            run_framework_tests $framework
+        else
+            run_prepped_framework_test $framework >$framework.out 2>&1 &
+            subshell_pid=$!
+            echo "Subshell was $subshell_pid"
+            echo $subshell_pid >$framework.pid
+            unset subshell_pid
+        fi
     done
+    if [ $PARALLEL = "true" ]; then
+        failures=0
+        for framework in $(ls $REPO_ROOT_DIR/frameworks); do
+            framework_pid=$(cat $framework.pid)
+            echo "Waiting for completion of $framework, pid=$framework_pid at $(date)"
+            if wait $framework_pid; then code=$?; else code=$?; fi # set -e is retarded
+            echo "$framework test exit code: $code"
+            if [ $code -ne 0 ]; then
+                echo "$framework FAILED"
+                let failures+=1
+            fi
+            echo "$framework test output follows ------------>>>>>>"
+            cat $framework.out
+            echo "<<<<<<------------ end $framework test output"
+        done
+        if [ $failures -ne 0 ]; then
+            echo "Exiting with failure as one or more tests failed."
+            exit 1
+        fi
+    fi
 fi
 
 # Tests succeeded. Out of courtesy, trigger a teardown of the cluster if we created it ourselves.
