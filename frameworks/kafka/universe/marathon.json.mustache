@@ -56,8 +56,6 @@
     "MESOS_ZOOKEEPER_URI": "master.mesos:2181",
 
     "TASKCFG_ALL_KAFKA_BROKER_DISK_PATH" : "{{brokers.disk_path}}",
-    "TASKCFG_ALL_KAFKA_BROKER_STATSD_HOST": "{{brokers.statsd.host}}",
-    "TASKCFG_ALL_KAFKA_BROKER_STATSD_PORT": "{{brokers.statsd.port}}",
     {{#kafka.kafka_advertise_host_ip}}
     "TASKCFG_ALL_KAFKA_ADVERTISE_HOST" : "set",
     {{/kafka.kafka_advertise_host_ip}}
