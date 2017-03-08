@@ -17,7 +17,8 @@ import java.util.Optional;
 /**
  * This class represents a single port, with associated environment name.
  */
-public class PortSpec extends DefaultResourceSpec implements ResourceSpec {
+public class PortSpec {
+    private final Protos.Value value;
     @NotNull
     @Size(min = 1)
     private final String portName;
@@ -25,15 +26,17 @@ public class PortSpec extends DefaultResourceSpec implements ResourceSpec {
 
     @JsonCreator
     public PortSpec(
-            @JsonProperty("name") String name,
             @JsonProperty("value") Protos.Value value,
-            @JsonProperty("role") String role,
-            @JsonProperty("principal") String principal,
             @JsonProperty("env-key") String envKey,
             @JsonProperty("port-name") String portName) {
-        super(name, value, role, principal, envKey);
+        this.value = value;
         this.portName = portName;
         this.envKey = envKey;
+    }
+
+    @JsonProperty("value")
+    public Protos.Value getValue() {
+        return value;
     }
 
     @JsonProperty("port-name")
@@ -42,15 +45,17 @@ public class PortSpec extends DefaultResourceSpec implements ResourceSpec {
     }
 
     @JsonProperty("env-key")
-    @Override
     public Optional<String> getEnvKey() {
         return Optional.ofNullable(envKey);
     }
 
-    @Override
-    public ResourceRequirement getResourceRequirement(Protos.Resource resource) {
+    public ResourceRequirement getResourceRequirement(Protos.Resource resource, ResourceSpec resourceSpec) {
         Protos.Resource portResource = resource == null ?
-                ResourceUtils.getDesiredResource(this) :
+                ResourceUtils.getDesiredResource(
+                        resourceSpec.getRole(),
+                        resourceSpec.getPrincipal(),
+                        resourceSpec.getName(),
+                        getValue()) :
                 ResourceUtils.withValue(resource, getValue());
         Protos.Value.Range range = getValue().getRanges().getRange(0);
         return new PortRangeRequirement(

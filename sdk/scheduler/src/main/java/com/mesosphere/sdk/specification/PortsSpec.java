@@ -13,7 +13,6 @@ import org.apache.mesos.Protos;
 import javax.validation.constraints.NotNull;
 import javax.validation.constraints.Size;
 import java.util.Collection;
-import java.util.Optional;
 import java.util.stream.Collectors;
 
 /**
@@ -34,7 +33,6 @@ public class PortsSpec implements ResourceSpec {
     @NotNull
     @Size(min = 1)
     private final String principal;
-    private final String envKey;
 
     @JsonCreator
     public PortsSpec(
@@ -42,14 +40,12 @@ public class PortsSpec implements ResourceSpec {
             @JsonProperty("value") Protos.Value value,
             @JsonProperty("role") String role,
             @JsonProperty("principal") String principal,
-            @JsonProperty("env-key") String envKey,
             @JsonProperty("port-specs") Collection<PortSpec> portSpecs) {
         this.name = name;
         this.value = value;
         this.portSpecs = portSpecs;
         this.role = role;
         this.principal = principal;
-        this.envKey = envKey;
 
         ValidationUtils.validate(this);
     }
@@ -80,14 +76,11 @@ public class PortsSpec implements ResourceSpec {
     }
 
     @Override
-    public Optional<String> getEnvKey() {
-        return Optional.ofNullable(envKey);
-    }
-
-    @Override
     public ResourceRequirement getResourceRequirement(Protos.Resource resource) {
         return new PortsRequirement(
-                portSpecs.stream().map(spec -> spec.getResourceRequirement(resource)).collect(Collectors.toList()));
+                portSpecs.stream()
+                .map(spec -> spec.getResourceRequirement(resource, this))
+                .collect(Collectors.toList()));
     }
 
     @Override

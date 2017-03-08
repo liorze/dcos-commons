@@ -9,6 +9,7 @@ import org.apache.commons.lang3.builder.HashCodeBuilder;
 import org.apache.commons.lang3.builder.ReflectionToStringBuilder;
 import org.apache.mesos.Protos;
 import com.mesosphere.sdk.specification.validation.ValidationUtils;
+
 import javax.validation.constraints.NotNull;
 import javax.validation.constraints.Pattern;
 
@@ -21,7 +22,6 @@ public class DefaultVolumeSpec extends DefaultResourceSpec implements VolumeSpec
 
     private final Type type;
 
-    /** Regexp in @Pattern will detect blank string. No need to use @NotEmpty or @NotBlank. */
     @NotNull
     @Pattern(regexp = "[a-zA-Z0-9]+([a-zA-Z0-9_-]*[/\\\\]*)*")
     private final String containerPath;
@@ -33,7 +33,7 @@ public class DefaultVolumeSpec extends DefaultResourceSpec implements VolumeSpec
             String role,
             String principal,
             String envKey) {
-        this(type, containerPath, RESOURCE_NAME, scalarValue(diskSize), role, principal, envKey);
+        this(type, containerPath, RESOURCE_NAME, scalarValue(diskSize), role, principal);
     }
 
     @JsonCreator
@@ -43,9 +43,8 @@ public class DefaultVolumeSpec extends DefaultResourceSpec implements VolumeSpec
             @JsonProperty("name") String name,
             @JsonProperty("value") Protos.Value value,
             @JsonProperty("role") String role,
-            @JsonProperty("principal")  String principal,
-            @JsonProperty("env-key")  String envKey) {
-        super(name, value, role, principal, envKey);
+            @JsonProperty("principal")  String principal) {
+        super(name, value, role, principal);
         this.type = type;
         this.containerPath = containerPath;
 

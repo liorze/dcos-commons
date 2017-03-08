@@ -6,8 +6,6 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import com.mesosphere.sdk.offer.ResourceRequirement;
 import org.apache.mesos.Protos;
 
-import java.util.Optional;
-
 /**
  * A ResourceSpec encapsulates a Mesos Resource that may be used by a Task and therefore specified in a
  * TaskSpecification.
@@ -29,8 +27,4 @@ public interface ResourceSpec {
 
     @JsonIgnore
     ResourceRequirement getResourceRequirement(Protos.Resource resource);
-
-    default Optional<String> getEnvKey() {
-        return Optional.of(getName());
-    }
 }

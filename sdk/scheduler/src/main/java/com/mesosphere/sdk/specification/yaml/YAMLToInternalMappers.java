@@ -6,6 +6,7 @@ import org.apache.commons.lang3.StringUtils;
 import com.mesosphere.sdk.config.ConfigNamespace;
 import com.mesosphere.sdk.config.DefaultTaskConfigRouter;
 import com.mesosphere.sdk.config.TaskConfigRouter;
+import com.mesosphere.sdk.offer.Constants;
 import com.mesosphere.sdk.offer.evaluate.placement.MarathonConstraintParser;
 import com.mesosphere.sdk.offer.evaluate.placement.PassthroughRule;
 import com.mesosphere.sdk.offer.evaluate.placement.PlacementRule;
@@ -13,6 +14,7 @@ import com.mesosphere.sdk.scheduler.SchedulerUtils;
 import com.mesosphere.sdk.specification.*;
 import com.mesosphere.sdk.specification.util.RLimit;
 import org.apache.mesos.Protos;
+import org.apache.mesos.Protos.DiscoveryInfo;
 
 import java.net.URI;
 import java.util.ArrayList;
@@ -27,6 +29,9 @@ import java.util.stream.Collectors;
  * Adapter utilities for mapping Raw YAML objects to internal objects.
  */
 public class YAMLToInternalMappers {
+
+    private static final String DEFAULT_VIP_PROTOCOL = "tcp";
+    public static final DiscoveryInfo.Visibility PUBLIC_VIP_VISIBILITY = DiscoveryInfo.Visibility.EXTERNAL;
 
     /**
      * Converts the provided YAML {@link RawServiceSpec} into a new {@link ServiceSpec}.
@@ -295,7 +300,7 @@ public class YAMLToInternalMappers {
             String id,
             Double cpus,
             Integer memory,
-            WriteOnceLinkedHashMap<String, RawPort> rawEndpoints,
+            WriteOnceLinkedHashMap<String, RawPort> rawPorts,
             RawVolume rawSingleVolume,
             WriteOnceLinkedHashMap<String, RawVolume> rawVolumes,
             String role,
@@ -331,12 +336,81 @@ public class YAMLToInternalMappers {
             resourceSetBuilder.memory(Double.valueOf(memory));
         }
 
-        if (rawEndpoints != null) {
-            resourceSetBuilder.addPorts(rawEndpoints);
+        if (rawPorts != null) {
+            resourceSetBuilder.addPorts(from(rawPorts, role, principal));
         }
 
-        return resourceSetBuilder
-                .id(id)
-                .build();
+        return resourceSetBuilder.id(id).build();
+    }
+
+    private static PortsSpec from(Map<String, RawPort> ports, String role, String principal) {
+        Collection<PortSpec> portSpecs = new ArrayList<>();
+        Protos.Value.Builder portsValueBuilder = Protos.Value.newBuilder().setType(Protos.Value.Type.RANGES);
+        for (Map.Entry<String, RawPort> portEntry : ports.entrySet()) {
+            String name = portEntry.getKey();
+            RawPort rawPort = portEntry.getValue();
+            Protos.Value.Builder portValueBuilder = Protos.Value.newBuilder()
+                    .setType(Protos.Value.Type.RANGES);
+            if (rawPort.getPort() != null) {
+                if (rawPort.getBegin() != null || rawPort.getEnd() != null) {
+                    throw new IllegalStateException(String.format(
+                            "Port '%s' must only specify 'port', or both 'port-begin' and 'port-end'", name));
+                }
+                portValueBuilder.getRangesBuilder().addRangeBuilder()
+                        .setBegin(rawPort.getPort())
+                        .setEnd(rawPort.getPort());
+            } else if (rawPort.getBegin() != null && rawPort.getEnd() != null) {
+                if (rawPort.getBegin() >= rawPort.getEnd()) {
+                    throw new IllegalStateException(String.format(
+                            "Port '%s' port-begin=%d must be smaller than port-end=%d",
+                            name, rawPort.getBegin(), rawPort.getEnd()));
+                }
+                if (rawPort.getBegin() == 0 || rawPort.getEnd() == 0) {
+                    throw new IllegalStateException(String.format(
+                            "Dynamic port ranges are not supported. " +
+                            "Port '%s' must have non-zero values for both 'port-begin' and 'port-end'", name));
+                }
+                portValueBuilder.getRangesBuilder().addRangeBuilder()
+                        .setBegin(rawPort.getBegin())
+                        .setEnd(rawPort.getEnd());
+            } else {
+                throw new IllegalStateException(String.format(
+                        "Port '%s' must either specify 'port', or both 'port-min' and 'port-max'", name));
+            }
+            portsValueBuilder.mergeRanges(portValueBuilder.getRanges());
+
+            if (rawPort.getVip() != null) {
+                final RawVip rawVip = rawPort.getVip();
+                final String protocol =
+                        StringUtils.isEmpty(rawVip.getProtocol()) ? DEFAULT_VIP_PROTOCOL : rawVip.getProtocol();
+                final String vipName = StringUtils.isEmpty(rawVip.getPrefix()) ? name : rawVip.getPrefix();
+                portSpecs.add(new NamedVIPSpec(
+                        portValueBuilder.build(),
+                        rawPort.getEnvKey(),
+                        name,
+                        protocol,
+                        toVisibility(rawVip.isAdvertised()),
+                        vipName,
+                        rawVip.getPort()));
+            } else {
+                portSpecs.add(new PortSpec(
+                        portValueBuilder.build(),
+                        rawPort.getEnvKey(),
+                        name));
+            }
+        }
+        return new PortsSpec(
+                Constants.PORTS_RESOURCE_TYPE, portsValueBuilder.build(), role, principal, portSpecs);
+    }
+
+    /**
+     * This visibility information isn't currently used by DC/OS Service Discovery. At the moment it's only enforced in
+     * our own {@link com.mesosphere.sdk.api.EndpointsResource}.
+     */
+    private static DiscoveryInfo.Visibility toVisibility(Boolean rawIsVisible) {
+        if (rawIsVisible == null) {
+            return PUBLIC_VIP_VISIBILITY;
+        }
+        return rawIsVisible ? DiscoveryInfo.Visibility.EXTERNAL : DiscoveryInfo.Visibility.CLUSTER;
     }
 }

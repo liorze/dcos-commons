@@ -13,7 +13,6 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 import javax.validation.constraints.NotNull;
 import javax.validation.constraints.Size;
-import java.util.Optional;
 
 /**
  * This class provides a default implementation of the ResourceSpec interface.
@@ -30,20 +29,17 @@ public class DefaultResourceSpec implements ResourceSpec {
     @NotNull
     @Size(min = 1)
     private final String principal;
-    private final String envKey;
 
     @JsonCreator
     public DefaultResourceSpec(
             @JsonProperty("name") String name,
             @JsonProperty("value") Protos.Value value,
             @JsonProperty("role") String role,
-            @JsonProperty("principal") String principal,
-            @JsonProperty("env-key") String envKey) {
+            @JsonProperty("principal") String principal) {
         this.name = name;
         this.value = value;
         this.role = role;
         this.principal = principal;
-        this.envKey = envKey;
     }
 
     private DefaultResourceSpec(Builder builder) {
@@ -51,7 +47,6 @@ public class DefaultResourceSpec implements ResourceSpec {
         value = builder.value;
         role = builder.role;
         principal = builder.principal;
-        envKey = builder.envKey;
     }
 
     public static Builder newBuilder() {
@@ -64,7 +59,6 @@ public class DefaultResourceSpec implements ResourceSpec {
         builder.value = copy.value;
         builder.role = copy.role;
         builder.principal = copy.principal;
-        builder.envKey = copy.envKey;
         return builder;
     }
 
@@ -104,11 +98,6 @@ public class DefaultResourceSpec implements ResourceSpec {
     }
 
     @Override
-    public Optional<String> getEnvKey() {
-        return Optional.ofNullable(envKey);
-    }
-
-    @Override
     public int hashCode() {
         return HashCodeBuilder.reflectionHashCode(this);
     }
@@ -122,7 +111,6 @@ public class DefaultResourceSpec implements ResourceSpec {
         private Protos.Value value;
         private String role;
         private String principal;
-        private String envKey;
 
         private Builder() {
         }
@@ -169,17 +157,6 @@ public class DefaultResourceSpec implements ResourceSpec {
          */
         public Builder principal(String principal) {
             this.principal = principal;
-            return this;
-        }
-
-        /**
-         * Sets the {@code envKey} and returns a reference to this Builder so that the methods can be chained together.
-         *
-         * @param envKey the {@code envKey} to set
-         * @return a reference to this Builder
-         */
-        public Builder envKey(String envKey) {
-            this.envKey = envKey;
             return this;
         }
 

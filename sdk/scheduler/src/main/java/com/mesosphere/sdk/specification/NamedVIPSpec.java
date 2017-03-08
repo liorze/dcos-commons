@@ -18,7 +18,7 @@ import javax.validation.constraints.Size;
 /**
  * This class represents a port mapped to a DC/OS named VIP.
  */
-public class NamedVIPSpec extends PortSpec implements ResourceSpec {
+public class NamedVIPSpec extends PortSpec {
     @NotNull
     @Size(min = 1)
     private final String protocol;
@@ -32,17 +32,14 @@ public class NamedVIPSpec extends PortSpec implements ResourceSpec {
 
     @JsonCreator
     public NamedVIPSpec(
-            @JsonProperty("name") String name,
             @JsonProperty("value") Protos.Value value,
-            @JsonProperty("role") String role,
-            @JsonProperty("principal") String principal,
             @JsonProperty("env-key") String envKey,
             @JsonProperty("port-name") String portName,
             @JsonProperty("protocol") String protocol,
             @JsonProperty("visibility") DiscoveryInfo.Visibility visibility,
             @JsonProperty("vip-name") String vipName,
             @JsonProperty("vip-port") Integer vipPort) {
-        super(name, value, role, principal, envKey, portName);
+        super(value, envKey, portName);
         this.protocol = protocol;
         this.visibility = visibility;
         this.vipName = vipName;
@@ -72,9 +69,13 @@ public class NamedVIPSpec extends PortSpec implements ResourceSpec {
     }
 
     @Override
-    public ResourceRequirement getResourceRequirement(Protos.Resource resource) {
+    public ResourceRequirement getResourceRequirement(Protos.Resource resource, ResourceSpec resourceSpec) {
         Protos.Resource portResource = resource == null ?
-                ResourceUtils.getDesiredResource(this) :
+                ResourceUtils.getDesiredResource(
+                        resourceSpec.getRole(),
+                        resourceSpec.getPrincipal(),
+                        resourceSpec.getName(),
+                        getValue()) :
                 ResourceUtils.withValue(resource, getValue());
         Protos.Value.Range range = getValue().getRanges().getRange(0);
         return new NamedVIPRequirement(
