@@ -93,7 +93,9 @@ public interface Element extends Observable {
     /**
      * Indicates whether this Element is running.
      */
-    default boolean isRunning() { return getStatus().isRunning(); }
+    default boolean isRunning() {
+        return getStatus().isRunning();
+    }
 
     /**
      * Provides the Element with a set of named string parameters that it can either use on start or provide to

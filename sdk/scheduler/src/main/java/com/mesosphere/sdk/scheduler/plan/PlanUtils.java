@@ -1,7 +1,5 @@
 package com.mesosphere.sdk.scheduler.plan;
 
-import com.google.protobuf.TextFormat;
-
 import com.mesosphere.sdk.offer.CommonTaskUtils;
 import org.apache.commons.collections.CollectionUtils;
 import org.apache.mesos.Protos.Offer;
@@ -57,7 +55,9 @@ public class PlanUtils {
 
     public static final void update(ParentElement<? extends Element> parent, TaskStatus taskStatus) {
         Collection<? extends Element> children = parent.getChildren();
-        LOGGER.info("Updated {} with TaskStatus: {}", parent.getName(), CommonTaskUtils.taskStatusDisplayString(taskStatus));
+        LOGGER.info("Updated {} with TaskStatus: {}",
+                parent.getName(),
+                CommonTaskUtils.taskStatusDisplayString(taskStatus));
         children.forEach(element -> element.update(taskStatus));
     }
 
