@@ -272,7 +272,7 @@ def main(argv):
                 requirements_txt = argv[3]
             else:
                 # use default requirements
-                requirements_txt = ''
+                requirements_txt = None
             tester.run_shakedown(test_dirs, requirements_txt, pytest_types)
         elif test_type == 'dcos-tests':
             dcos_tests_dir = argv[3]
