@@ -1,6 +1,7 @@
 '''Utilities relating to interaction with service plans'''
 
 import dcos
+import sdk_api
 import sdk_spin
 import shakedown
 
