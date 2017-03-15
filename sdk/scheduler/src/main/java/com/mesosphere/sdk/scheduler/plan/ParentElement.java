@@ -24,11 +24,13 @@ public interface ParentElement<C extends Element> extends Element, Interruptible
 
     @Override
     default void interrupt() {
+        notifyObservers();
         getStrategy().interrupt();
     }
 
     @Override
     default void proceed() {
+        notifyObservers();
         getStrategy().proceed();
     }
 
