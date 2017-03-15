@@ -86,15 +86,39 @@ public class OfferEvaluator {
         return recommendations;
     }
 
-    public List<OfferEvaluationStage> getEvaluationPipeline(OfferRequirement offerRequirement) {
+    private OfferEvaluationStage getExecutorEvaluationsStage(OfferRequirement offerRequirement) {
+        List<String> taskNames = offerRequirement.getTaskRequirements().stream()
+                .map(taskRequirement -> taskRequirement.getTaskInfo().getName())
+                .collect(Collectors.toList());
+
+        List<TaskInfo> taskInfos = taskNames.stream()
+                .map(taskName -> stateStore.fetchTask(taskName))
+                .filter(taskInfo -> taskInfo.isPresent())
+                .map(taskInfo -> taskInfo.get())
+                .collect(Collectors.toList());
+
+        for (TaskInfo taskInfo : taskInfos) {
+            Optional<TaskStatus> taskStatusOptional = stateStore.fetchStatus(taskInfo.getName());
+            if (taskStatusOptional.isPresent()
+                    && taskStatusOptional.get().getState() == TaskState.TASK_RUNNING) {
+                logger.info(
+                        "Reusing executor from task '{}': {}",
+                        taskInfo.getName(),
+                        TextFormat.shortDebugString(taskInfo.getExecutor()));
+                return new ExecutorEvaluationStage(taskInfo.getExecutor().getExecutorId());
+            }
+        }
+
+        logger.info("Creating new executor for tasks {}, as no RUNNING tasks were found", taskNames);
+        return new ExecutorEvaluationStage();
+    }
+
+    public List<OfferEvaluationStage> getEvaluationPipeline(OfferRequirement offerRequirement)
+            throws InvalidRequirementException {
         List<OfferEvaluationStage> evaluationPipeline = new ArrayList<>();
 
         evaluationPipeline.add(new PlacementRuleEvaluationStage(stateStore.fetchTasks()));
-        if (offerRequirement.getExecutorRequirementOptional().isPresent()) {
-            evaluationPipeline.add(offerRequirement.getExecutorRequirementOptional().get().getEvaluationStage());
-        } else {
-            evaluationPipeline.add(new ExecutorEvaluationStage());
-        }
+        evaluationPipeline.add(getExecutorEvaluationsStage(offerRequirement));
 
         for (TaskRequirement taskRequirement : offerRequirement.getTaskRequirements()) {
             String taskName = taskRequirement.getTaskInfo().getName();

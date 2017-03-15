@@ -125,15 +125,6 @@ public class ExecutorRequirement {
         }
     }
 
-    public OfferEvaluationStage getEvaluationStage() {
-        Protos.ExecutorID executorID = null;
-        if (getExecutorInfo().hasExecutorId() && !getExecutorInfo().getExecutorId().getValue().isEmpty()) {
-            executorID = getExecutorInfo().getExecutorId();
-        }
-
-        return new ExecutorEvaluationStage(executorID);
-    }
-
     @Override
     public String toString() {
         return ToStringBuilder.reflectionToString(this);
